@@ -4,6 +4,7 @@ StringUtils = Java.type("net.minecraft.util.StringUtils");
 Gui = Java.type("net.minecraft.client.gui.Gui");
 GL11 = Java.type("org.lwjgl.opengl.GL11");
 Color = Java.type("java.awt.Color");
+targetPlayer = "";
 
 Fonts = Java.type("net.ccbluex.liquidbounce.ui.font.Fonts");
 FontList = Fonts.getFonts();
@@ -29,7 +30,7 @@ list = [
 	TextY = value.createFloat('TextY', 0, -5, 5),
 	ShadowText = value.createBoolean('ShadowText', true),
 
-	BorederValue = value.createBoolean('Boreder', true),
+	BorderValue = value.createBoolean('Border', true),
 	BorderRed = value.createInteger("BorderRed", 255, 0, 255),
 	BorderGreen = value.createInteger("BorderGreen", 255, 0, 255),
 	BorderBlue = value.createInteger("BorderBlue", 255, 0, 255),
@@ -37,7 +38,9 @@ list = [
 	BorderStrength = value.createFloat("BorderStrength", 2, 0, 8),
 
 	FontValue = value.createInteger('', 0, 0, FontList.length - 1),
-	Font = value.createText('Font ', Fonts.getFonts()[0].getDefaultFont().getFont().getName())
+	Font = value.createText('Font ', Fonts.getFonts()[0].getDefaultFont().getFont().getName()),
+	
+	ShowTargetOnView = value.createBoolean('ShowTargetOnView', false),
 
 ]
 
@@ -47,13 +50,15 @@ module = {
 	author: "natte && As丶One",
 	values: list,
 	onRender2D: function () {
+		var playerInView = getTargetEntity();
+		if (mc.thePlayer != null && (KillAura.target instanceof EntityPlayer || playerInView instanceof EntityPlayer)) {
+			targetPlayer = (KillAura.target instanceof EntityPlayer || !ShowTargetOnView.get()) ? KillAura.target : playerInView;
+			
+			var playerInfo = mc.getNetHandler().getPlayerInfo(targetPlayer.getUniqueID());
 
-		if (mc.thePlayer != null && KillAura.target instanceof EntityPlayer) {
-			var playerInfo = mc.getNetHandler().getPlayerInfo(KillAura.target.getUniqueID());
-
-			var name = StringUtils.stripControlCodes(KillAura.target.getName());
-			var distance = mc.thePlayer.getDistanceToEntity(KillAura.target).toFixed(2);
-			var health = (KillAura.target.getHealth() / 2).toFixed(2);
+			var name = StringUtils.stripControlCodes(targetPlayer.getName());
+			var distance = mc.thePlayer.getDistanceToEntity(targetPlayer).toFixed(2);
+			var health = (targetPlayer.getHealth() / 2).toFixed(2);
 			var ping = playerInfo == null ? "0ms" : playerInfo.getResponseTime() + "ms";
 
 			var width = 140;
@@ -61,17 +66,19 @@ module = {
 
 			var BGColor = new Color(BGRed.get(), BGGreen.get(), BGBlue.get(), BGAlpha.get()).getRGB();
 			var TextColor = new Color(TextRed.get(), TextGreen.get(), TextBlue.get()).getRGB();
-			var BorederColor = new Color(BorderRed.get(), BorderGreen.get(), BorderBlue.get(), BorderAlpha.get()).getRGB();
+			var BorderColor = new Color(BorderRed.get(), BorderGreen.get(), BorderBlue.get(), BorderAlpha.get()).getRGB();
 
-			var inc = 96 / KillAura.target.getMaxHealth();
-			var end = inc * (KillAura.target.getHealth() > KillAura.target.getMaxHealth() ? KillAura.target.getMaxHealth() : KillAura.target.getHealth());
+			var inc = 96 / targetPlayer.getMaxHealth();
+			var end = inc * (targetPlayer.getHealth() > targetPlayer.getMaxHealth() ? targetPlayer.getMaxHealth() : targetPlayer.getHealth());
 
 			GL11.glPushMatrix();
 			GL11.glScaled(Scale.get(), Scale.get(), Scale.get());
 
 			drawRect(x.get(), y.get(), x.get() + width, y.get() + height, BGColor);
-			drawBorder(x.get(), y.get(), width, height, BorderStrength.get(), BorederColor);
-
+			if (BorderValue.get()) {
+				drawBorder(x.get(), y.get(), width, height, BorderStrength.get(), BorderColor);
+			}
+			
 			if (ShadowText.get()) {
 				font.drawStringWithShadow("Name: " + name, x.get() + 46.5, y.get() + 4 + TextY.get(), TextColor);
 				font.drawStringWithShadow("Distance: " + distance, x.get() + 46.5, y.get() + 12 + TextY.get(), TextColor);
@@ -87,7 +94,7 @@ module = {
 			drawFace(x.get() + 0.5, y.get() + 0.5, 8, 8, 8, 8, 44, 44, 64, 64);
 
 			drawRect(x.get() + 44, y.get() + 36, x.get() + width, y.get() + 0.5 + height, new Color(35, 35, 35).getRGB());
-			drawRect(x.get() + 44, y.get() + 36, x.get() + 44 + end, y.get() + 0.5 + height, getHealthColor(KillAura.target));
+			drawRect(x.get() + 44, y.get() + 36, x.get() + 44 + end, y.get() + 0.5 + height, getHealthColor(targetPlayer));
 
 			GL11.glPopMatrix();
 		}
@@ -107,7 +114,7 @@ module = {
 }
 
 function drawFace(x, y, u, v, uWidth, vHeight, width, height, tileWidth, tileHeight) {
-	var texture = KillAura.target.getLocationSkin();
+	var texture = targetPlayer.getLocationSkin();
 
 	mc.getTextureManager().bindTexture(texture);
 
@@ -135,6 +142,45 @@ function getHealthColor(player) {
 	var maxHealth = player.getMaxHealth();
 
 	return Color.HSBtoRGB(Math.max(0.0, Math.min(health, maxHealth) / maxHealth) / 3.0, 1.0, 0.75) | 0xFF000000;
+}
+
+function isValidEntity(entity) {
+	return mc.thePlayer.canEntityBeSeen(entity) &&  entity != mc.getRenderViewEntity() && entity instanceof EntityPlayer
+}
+
+
+function getTargetEntity() {
+
+	var entityBox;
+	var pointedEntity;
+	var list = [];
+	var filteredEntityList = [];
+	var calculateIntercept;
+	var lowestDistance = 1E5;
+	var distanceToEntity;
+
+	var lookVec = mc.thePlayer.getLookVec();
+	var eyePos = mc.getRenderViewEntity().getPositionEyes(1);
+	var vec = eyePos.addVector(lookVec.xCoord * 300, lookVec.yCoord * 300, lookVec.zCoord * 300);
+	list = mc.theWorld.loadedEntityList;
+	for (var i in list) {
+		if (isValidEntity(list[i])) {
+			filteredEntityList.push(list[i]);
+		}
+	}
+	
+	for (var j in filteredEntityList) {
+		entityBox = filteredEntityList[j].getEntityBoundingBox().expand(0.15, 0.2, 0.15);
+		calculateIntercept = entityBox.calculateIntercept(eyePos, vec);
+		if (calculateIntercept != null) {
+			distanceToEntity = mc.thePlayer.getDistanceToEntity(filteredEntityList[j]);
+			if (distanceToEntity < lowestDistance) {
+				distanceToEntity = lowestDistance;
+				pointedEntity = filteredEntityList[j];
+			}
+		}	
+	}
+	return pointedEntity;
 }
 
 script.import("Core.lib");
