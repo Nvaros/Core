@@ -42,7 +42,7 @@ list = [
 ]
 
 module = {
-	name: "TargetInfo1",
+	name: "TargetInfo",
 	description: "Renders informations about current target.",
 	author: "natte && As丶One",
 	values: list,
