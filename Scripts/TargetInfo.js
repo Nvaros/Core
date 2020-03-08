@@ -1,19 +1,41 @@
+KillAura = Java.type("net.ccbluex.liquidbounce.LiquidBounce").moduleManager.getModule(Java.type("net.ccbluex.liquidbounce.features.module.modules.combat.KillAura").class);
+EntityPlayer = Java.type("net.minecraft.entity.player.EntityPlayer");
+StringUtils = Java.type("net.minecraft.util.StringUtils");
+Gui = Java.type("net.minecraft.client.gui.Gui");
+GL11 = Java.type("org.lwjgl.opengl.GL11");
+Color = Java.type("java.awt.Color");
+
+Fonts = Java.type("net.ccbluex.liquidbounce.ui.font.Fonts");
+FontList = Fonts.getFonts();
+
+var font
+var ii
+
+
 list = [
-    backgroundRed = value.createInteger("Red", 0, 0, 255),
-    backgroundGreen = value.createInteger("Green", 0, 0, 255),
-    backgroundBlue = value.createInteger("Blue", 0, 0, 255),
-    backgroundAlpha = value.createInteger("Alpha", 60, 0, 255),
+    BGRed = value.createInteger("BGRed", 0, 0, 255),
+    BGGreen = value.createInteger("BGGreen", 0, 0, 255),
+    BGBlue = value.createInteger("BGBlue", 0, 0, 255),
+    BGAlpha = value.createInteger("BGAlpha", 150, 0, 255),
     x = value.createInteger("X", 415, 0, 1000),
-    y = value.createInteger("Y", 320, 0, 1000)
+    y = value.createInteger("Y", 320, 0, 1000),
+    FontValue = value.createInteger('', 0, 0, FontList.length - 1),
+    Font = value.createText('Font ', Fonts.getFonts()[0].getDefaultFont().getFont().getName()),
+    TextY = value.createFloat('TextY', 0, -5, 5),
+    ShadowText = value.createBoolean('ShadowText', true),
+    TextRed = value.createInteger("TextRed", 255, 0, 255),
+    TextGreen = value.createInteger("TextGreen", 255, 0, 255),
+    TextBlue = value.createInteger("TextBlue", 255, 0, 255)
 ]
 
 module = {
     name: "TargetInfo",
     description: "Renders informations about current target.",
-    author: "natte",
+    author: "natte && As丶One",
     values: list,
     onRender2D: function () {
-        var backgroundColor = new Color(backgroundRed.get(), backgroundGreen.get(), backgroundBlue.get(), backgroundAlpha.get()).getRGB()
+        var BGColor = new Color(BGRed.get(), BGGreen.get(), BGBlue.get(), BGAlpha.get()).getRGB()
+        var TextColor = new Color(TextRed.get(),TextGreen.get(),TextBlue.get()).getRGB()
 
         if (mc.thePlayer != null && KillAura.target instanceof EntityPlayer) {
             var playerInfo = mc.getNetHandler().getPlayerInfo(KillAura.target.getUniqueID());
@@ -26,14 +48,19 @@ module = {
             var width = 140;
             var height = 44;
 
-            var font = Fonts.font35;
-
-            drawRect(x.get(), y.get(), width, height, backgroundColor);
-
-            font.drawStringWithShadow("Name: " + name, x.get() + 46.5, y.get() + 4, -1);
-            font.drawStringWithShadow("Distance: " + distance, x.get() + 46.5, y.get() + 12, -1);
-            font.drawStringWithShadow("Health: " + health, x.get() + 46.5, y.get() + 20, -1);
-            font.drawStringWithShadow("Ping: " + ping, x.get() + 46.5, y.get() + 28, -1);
+            drawRect(x.get(), y.get(), width, height, BGColor);
+            if(ShadowText.get()){
+                font.drawStringWithShadow("Name: " + name, x.get() + 46.5, y.get() + 4 + TextY.get(),TextColor);
+                font.drawStringWithShadow("Distance: " + distance, x.get() + 46.5, y.get() + 12 + TextY.get(),TextColor);
+                font.drawStringWithShadow("Health: " + health, x.get() + 46.5, y.get() + 20 + TextY.get(),TextColor);
+                font.drawStringWithShadow("Ping: " + ping, x.get() + 46.5, y.get() + 28 + TextY.get(),TextColor);
+            }else{
+                font.drawString("Name: " + name, x.get() + 46.5, y.get() + 4 + TextY.get(), TextColor);
+                font.drawString("Distance: " + distance, x.get() + 46.5, y.get() + 12 + TextY.get(), TextColor);
+                font.drawString("Health: " + health, x.get() + 46.5, y.get() + 20 + TextY.get(), TextColor);
+                font.drawString("Ping: " + ping, x.get() + 46.5, y.get() + 28 + TextY.get(), TextColor);
+            }
+            
 
             drawFace(x.get() + 0.5, y.get() + 0.5, 8, 8, 8, 8, 44, 44, 64, 64);
 
@@ -43,6 +70,18 @@ module = {
             drawRect(x.get() + 44, y.get() + 36, width - 44, height - 35.5, new Color(35, 35, 35).getRGB());
             drawRect(x.get() + 44, y.get() + 36, end, height - 35.5, getHealthColor(KillAura.target));
         }
+    },
+    onUpdate: function () {
+        if (ii != FontValue.get()) {
+            ii = FontValue.get()
+            font = Fonts.getFonts()[ii]
+            Font.set(font == mc.fontRendererObj ? 'Minecraft' : font.getDefaultFont().getFont().getName())
+        }
+    },
+    onEnable: function () {
+        ii = FontValue.get()
+        font = FontList[ii]
+        Font.set(font == mc.fontRendererObj ? 'Minecraft' : font.getDefaultFont().getFont().getName())
     }
 }
 
@@ -69,13 +108,5 @@ function getHealthColor(player) {
 
     return Color.HSBtoRGB(Math.max(0.0, Math.min(health, maxHealth) / maxHealth) / 3.0, 1.0, 0.75) | 0xFF000000;
 }
-
-KillAura = Java.type("net.ccbluex.liquidbounce.LiquidBounce").moduleManager.getModule(Java.type("net.ccbluex.liquidbounce.features.module.modules.combat.KillAura").class);
-EntityPlayer = Java.type("net.minecraft.entity.player.EntityPlayer");
-Fonts = Java.type("net.ccbluex.liquidbounce.ui.font.Fonts");
-StringUtils = Java.type("net.minecraft.util.StringUtils");
-Gui = Java.type("net.minecraft.client.gui.Gui");
-GL11 = Java.type("org.lwjgl.opengl.GL11");
-Color = Java.type("java.awt.Color");
 
 script.import("Core.lib");
